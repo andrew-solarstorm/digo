@@ -97,6 +97,16 @@ func (c *Container) start() error {
 
 // configure the instances in order
 func (c *Container) configure() error {
+	if c.config != nil {
+		if err := c.config.Load(); err != nil {
+			return fmt.Errorf("error loading config: %s", err.Error())
+		}
+
+		if err := c.config.Validate(); err != nil {
+			return fmt.Errorf("error validating config: %s", err.Error())
+		}
+	}
+
 	for id := range len(c.iOrder) {
 		iname := c.iOrder[id]
 		if err := c.instances[iname].Configure(c); err != nil {

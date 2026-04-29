@@ -1,7 +1,6 @@
 package digo
 
 type IConfig interface {
-	Key() string
 	Load() error
 	Validate() error
 }
