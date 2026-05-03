@@ -151,6 +151,20 @@ func (c *Container) run() error {
 	return nil
 }
 
+func (c *Container) signalStop(sigChan chan os.Signal) {
+	select {
+	case <-c.ctx.Done():
+		c.cInfo("run", _contanerName).Msg("container stopped")
+		_ = c.Stop()
+		return
+	case <-sigChan:
+		c.cInfo("run", _contanerName).Msg("container stopped by user cancel")
+		c.cancel()
+		_ = c.Stop()
+		return
+	}
+}
+
 // Run the container with context
 func (c *Container) Run() error {
 	// run with cancel
@@ -158,19 +172,7 @@ func (c *Container) Run() error {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// stop the container
-	go func() {
-		select {
-		case <-c.ctx.Done():
-			c.cInfo("run", _contanerName).Msg("container stopped")
-			_ = c.Stop()
-			return
-		case <-sigChan:
-			c.cInfo("run", _contanerName).Msg("container stopped by user cancel")
-			c.cancel()
-			_ = c.Stop()
-			return
-		}
-	}()
+	go c.signalStop(sigChan)
 
 	// run without block
 	if err := c.run(); err != nil {
@@ -184,6 +186,9 @@ func (c *Container) Run() error {
 func (c *Container) RunBlock() error {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go c.signalStop(sigChan)
+
 	// run block
 	if err := c.run(); err != nil {
 		return err
