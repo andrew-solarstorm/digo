@@ -187,15 +187,11 @@ func (c *Container) RunBlock() error {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	go c.signalStop(sigChan)
-
 	// run block
 	if err := c.run(); err != nil {
 		return err
 	}
 
-	// wait for signal
-	<-sigChan
-
+	c.signalStop(sigChan)
 	return nil
 }
