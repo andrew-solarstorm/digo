@@ -85,11 +85,12 @@ func (c *Container) start() error {
 	c.cInfo("start", _contanerName).Msg("Application started. Press Ctrl+C to stop.")
 	for idx := range len(c.iOrder) {
 		iname := c.iOrder[idx]
+		c.cInfo("start", iname).Msgf("starting instance: %s", iname)
 		if err := c.instances[iname].Start(); err != nil {
 			c.cError("start", iname).Err(err).Msg("error staring service")
 			return err
 		}
-		c.cInfo("start", iname).Msgf("starting instance: %s", iname)
+		c.cInfo("start", iname).Msgf("instance: %s started successfully!", iname)
 	}
 
 	return nil
@@ -109,11 +110,11 @@ func (c *Container) configure() error {
 
 	for id := range len(c.iOrder) {
 		iname := c.iOrder[id]
+		c.cInfo("configure", iname).Msgf("configuring instance: %d", id)
 		if err := c.instances[iname].Configure(c); err != nil {
 			c.cError("configure", iname).Err(err).Msg("error configuring service")
 			return err
 		}
-		c.cInfo("configure", iname).Msgf("configured instance: %d", id)
 	}
 	return nil
 }
@@ -122,11 +123,11 @@ func (c *Container) configure() error {
 func (c *Container) Stop() error {
 	for id := range len(c.iOrder) {
 		name := c.iOrder[id]
+		c.cInfo("stop", name).Msgf("stopping instance: %d", id)
 		if err := c.instances[name].Stop(); err != nil {
 			c.cError("stop", name).Err(err).Msg("error stopping service")
 			return err
 		}
-		c.cInfo("stop", name).Msgf("stopped instance: %d", id)
 	}
 	return nil
 }
