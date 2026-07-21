@@ -121,7 +121,7 @@ func (c *Container) configure() error {
 
 // Stop the instances in reverse order
 func (c *Container) Stop() error {
-	for id := range len(c.iOrder) {
+	for id := len(c.iOrder) - 1; id >= 0; id-- {
 		name := c.iOrder[id]
 		c.cInfo("stop", name).Msgf("stopping instance: %d", id)
 		if err := c.instances[name].Stop(); err != nil {
@@ -161,6 +161,13 @@ func (c *Container) signalStop(sigChan chan os.Signal) {
 	case <-sigChan:
 		c.cInfo("run", _contanerName).Msg("container stopped by user cancel")
 		c.cancel()
+
+		go func() {
+			<-sigChan
+			c.cInfo("run", _contanerName).Msg("second interrupt received, forcing immediate exit")
+			os.Exit(1)
+		}()
+
 		_ = c.Stop()
 		return
 	}
