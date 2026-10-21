@@ -19,23 +19,37 @@ const _contanerName = "Container"
 type Container struct {
 	iOrder    map[int]string
 	instances map[string]IInstance
-	config    IConfig
+	configs   *configs
 	ctx       context.Context
 	cancel    context.CancelFunc
 }
 
-func (c *Container) Config() IConfig {
-	return c.config
+// Config returns a config by its key
+// if config is not found, it will panic
+func (c *Container) Config(key string) IConfig {
+	cfg, ok := c.configs.get(key)
+	if !ok {
+		panic(fmt.Errorf("config %s not found", key))
+	}
+	return cfg
 }
 
-// New create DIContainer with DIInstances
-func New(config IConfig, ins ...IInstance) (*Container, error) {
+// New create DIContainer with configs and DIInstances
+// every config must have a unique non-empty Key
+func New(cfgs []IConfig, ins ...IInstance) (*Container, error) {
 	c := &Container{
 		iOrder:    make(map[int]string),
 		instances: make(map[string]IInstance),
-		config:    config,
+		configs:   newConfigs(),
 	}
 	c.ctx, c.cancel = context.WithCancel(context.Background())
+
+	for _, cfg := range cfgs {
+		if err := c.configs.register(cfg); err != nil {
+			return nil, err
+		}
+		log.Info().Str("DI Container", "register").Str("Config", cfg.Key()).Msgf("registered config: %s", cfg.Key())
+	}
 
 	for order, i := range ins {
 		if err := c.register(order, i); err != nil {
@@ -98,14 +112,8 @@ func (c *Container) start() error {
 
 // configure the instances in order
 func (c *Container) configure() error {
-	if c.config != nil {
-		if err := c.config.Load(); err != nil {
-			return fmt.Errorf("error loading config: %s", err.Error())
-		}
-
-		if err := c.config.Validate(); err != nil {
-			return fmt.Errorf("error validating config: %s", err.Error())
-		}
+	if err := c.configs.load(); err != nil {
+		return err
 	}
 
 	for id := range len(c.iOrder) {
@@ -133,14 +141,7 @@ func (c *Container) Stop() error {
 }
 
 func (c *Container) run() error {
-	// load config
-	if c.config != nil {
-		if err := c.config.Load(); err != nil {
-			return err
-		}
-	}
-
-	// config instances first
+	// load configs and config instances first
 	if err := c.configure(); err != nil {
 		return err
 	}

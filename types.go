@@ -1,14 +1,16 @@
 package digo
 
 type IConfig interface {
+	Key() string
 	Load() error
 	Validate() error
 }
 
 // IContainer defines the public API for a dependency injection container
 type IContainer interface {
-	// Getconfig returns the configuration object
-	Config() IConfig
+	// Config returns a configuration by its key
+	// If the config is not found, it will panic
+	Config(key string) IConfig
 
 	// Instance returns an instance by its ID
 	// If the instance is not found, it will panic

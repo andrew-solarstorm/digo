@@ -6,6 +6,7 @@ func Instance[T IInstance](id string, c IContainer) T {
 	return instance.(T)
 }
 
-func GetConfig[T IConfig](c IContainer) T {
-	return c.Config().(T)
+// GetConfig Get config by key and cast to TConfig
+func GetConfig[T IConfig](key string, c IContainer) T {
+	return c.Config(key).(T)
 }
