@@ -26,8 +26,9 @@ The main interface for dependency injection containers:
 ```go
 // IContainer defines the public API for a dependency injection container
 type IContainer interface {
- // Getconfig returns the configuration object
- Config() IConfig
+ // Config returns a configuration by its key
+ // If the config is not found, it will panic
+ Config(key string) IConfig
 
  // Instance returns an instance by its ID
  // If the instance is not found, it will panic
@@ -42,6 +43,23 @@ type IContainer interface {
  Stop() error
 
  RunBlock() error
+}
+```
+
+### IConfig
+
+The interface that all configurations must implement. Multiple configs can be registered in the container, each identified by a unique, non-empty `Key`:
+
+```go
+type IConfig interface {
+ // Key returns the name of the config which is unique
+ Key() string
+
+ // Load reads the configuration (env, file, ...)
+ Load() error
+
+ // Validate checks the loaded configuration
+ Validate() error
 }
 ```
 
@@ -83,6 +101,19 @@ type AppConfig struct {
  APIPort            int
 }
 
+const APP_CONFIG = "app-config"
+
+func (c *AppConfig) Key() string { return APP_CONFIG }
+
+func (c *AppConfig) Load() error {
+ // read from env, file, ...
+ return nil
+}
+
+func (c *AppConfig) Validate() error {
+ return nil
+}
+
 const (
  DATABASE_SERVICE = "database-service"
  API_SERVICE = "api-service"
@@ -101,7 +132,7 @@ func (d *DatabaseService) Id() string {
 
 func (d *DatabaseService) Configure(c digo.IContainer) error {
  fmt.Println("Configuring database service")
- d.config = c.Config().(*AppConfig)
+ d.config = c.Config(APP_CONFIG).(*AppConfig)
  return nil
 }
 
@@ -131,10 +162,10 @@ func (a *APIService) Configure(c digo.IContainer) error {
  fmt.Println("Configuring API service")
  
  // Get config (standard way)
- a.config = c.Config().(*AppConfig)
+ a.config = c.Config(APP_CONFIG).(*AppConfig)
  
  // or Get config (type-safe generic helper)
- a.config = digo.GetConfig[*AppConfig](c)
+ a.config = digo.GetConfig[*AppConfig](APP_CONFIG, c)
  
  // Get dependency (standard way)
  a.db = c.Instance(DATABASE_SERVICE).(*DatabaseService)
@@ -164,9 +195,9 @@ func main() {
   APIPort:            8080,
  }
 
- // Create container with ordered instances
- diContainer, err := container.New(
-  appConfig,
+ // Create container with configs (unique keys) and ordered instances
+ diContainer, err := digo.New(
+  []digo.IConfig{appConfig},
   &DatabaseService{},
   &APIService{},
  )
@@ -195,8 +226,8 @@ func main() {
 The package provides type-safe generic helper methods:
 
 ```go
-// Get config with type safety
-config := digo.GetConfig[*AppConfig](c)
+// Get config by key with type safety
+config := digo.GetConfig[*AppConfig](APP_CONFIG, c)
 
 // Get instance with type safety
 dbService := digo.Instance[*DatabaseService](DATABASE_SERVICE, c)
@@ -204,13 +235,14 @@ dbService := digo.Instance[*DatabaseService](DATABASE_SERVICE, c)
 
 ## How It Works
 
-1. Create a configuration struct to hold your application settings
+1. Create one or more configuration structs that implement `IConfig`, each with a unique key
 2. Create service instances that implement the `DIInstance` interface
-3. Register the instances in the container in the desired initialization order
+3. Register the configs and the instances in the container (instances in the desired initialization order)
 4. Run the container to start the application
 
 The container handles:
 
+- Loading and validating all configs in registration order (the first failure stops the run and reports the config key)
 - Configuration of all instances
 - Dependency injection between instances
 - Starting instances in the registered order
